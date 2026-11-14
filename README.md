@@ -11,7 +11,7 @@ The three models estimate the remaining useful life (RUL), detect a coming failu
 ## How it works
 
 ```
-STM32F446RE + sensors --UART--> ESP8266 --Wi-Fi / HTTP--> ESP32-S3 gateway --HTTPS--> Supabase --Realtime--> Android app
+STM32F446RE + sensors --UART--> ESP8266 --Wi-Fi / UDP--> ESP32-S3 gateway --HTTPS--> Supabase --Realtime--> Android app
 (LM75, ADXL345, OLED)                                     (3 Edge Impulse models)                          (+ Gemini chatbot)
 ```
 
