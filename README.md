@@ -4,7 +4,7 @@ Real-time health monitoring and predictive maintenance for electric motors, with
 
 Website: [motorwatch.tech](https://motorwatch.tech)
 
-MotorWatch measures the temperature and vibration of a motor, runs three small neural networks on an ESP32-S3 gateway, stores the results in Supabase and shows them in an Android app. We built it as our end-of-year engineering project (PFA) at ENICarthage, Embedded Systems track, 2025-2026.
+MotorWatch measures the temperature and vibration of a motor, runs three optimized neural networks models on an ESP32-S3 gateway, stores the results into Supabase and displays them in an Android app. We built it as our end-of-year engineering project (PFA) at ENICarthage, Embedded Systems track, 2025-2026.
 
 The three models estimate the remaining useful life (RUL), detect a coming failure and name the likely cause: a bearing problem or motor overheating. A chatbot in the app turns those outputs into maintenance advice.
 
@@ -16,8 +16,8 @@ STM32F446RE + sensors --UART--> ESP8266 --Wi-Fi / HTTP--> ESP32-S3 gateway --HTT
 ```
 
 1. **Node.** The STM32 reads a temperature sensor and a 3-axis accelerometer, computes a vibration RMS value and sends one text frame per second over UART.
-2. **Relay.** The ESP8266 does no processing. It forwards each frame to the gateway over Wi-Fi using HTTP.
-3. **Gateway.** The ESP32-S3 parses the frames, pushes raw readings to Supabase every second, and every 5 minutes runs the models on 300-second averages.
+2. **Wifi Module.** The ESP8266 does no processing. It forwards each frame to the gateway over Wi-Fi using UDP.
+3. **Gateway.** The ESP32-S3 parses the frames, pushes raw readings to Supabase every second using HTTP protocol, and every 5 minutes runs the models on 300-second averages.
 4. **Cloud and app.** Supabase stores everything. The Android app subscribes to it in real time and shows live curves, predictions and alerts.
 
 Several nodes can share one gateway. The input vector includes the machine type, so you don't retrain the models to watch a different motor.
@@ -27,8 +27,8 @@ Several nodes can share one gateway. The input vector includes the machine type,
 | Part | Role |
 |---|---|
 | STM32 Nucleo-F446RE | Sensor acquisition and FreeRTOS application |
-| Accessory Shield | LM75 temperature sensor (I2C 0x48), ADXL345 accelerometer (0x53), SSD1306 OLED 128x64 (0x3C) |
-| NodeMCU ESP8266 | Wi-Fi relay between the node and the gateway |
+| Accessory Shield | LM75 temperature sensor , ADXL345 accelerometer , SSD1306 OLED |
+| NodeMCU ESP8266 | Wi-Fi module between the node and the gateway |
 | ESP32-S3 | Gateway: Edge AI inference and cloud upload |
 
 ## Node firmware
@@ -53,7 +53,7 @@ The training data is a public Kaggle predictive maintenance dataset: 22,660 obse
 
 These numbers come from a test split of the dataset, not from field measurements. The failure type model was trained on the 2,170 failure observations only (1,117 bearing, 1,060 overheating) and uses four inputs, without the maintenance hours.
 
-Each 5-minute cycle works like this: the gateway reads `motor_config`, computes the 300-second averages, runs failure detection, and runs the failure type model only if a failure was detected (otherwise `ftype` is stored as -1). The RUL model runs every cycle.
+Each 5-minute cycle works like this: the gateway reads `motor_config` (set from the mobile or web dashboard), computes the 300-second averages, runs failure detection, and runs the failure type model only if a failure was detected (otherwise `ftype` is stored as -1). The RUL model runs every cycle.
 
 ## Database
 
