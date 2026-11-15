@@ -4,7 +4,7 @@ Real-time health monitoring and predictive maintenance for electric motors, with
 
 Website: [motorwatch.tech](https://motorwatch.tech)
 
-MotorWatch measures the temperature and vibration of a motor, runs three optimized neural networks models on an ESP32-S3 gateway, stores the results into Supabase and displays them in an Android app. We built it as our end-of-year engineering project (PFA) at ENICarthage, Embedded Systems track, 2025-2026.
+MotorWatch measures the temperature and vibration of a motor, runs three optimized neural network models on an ESP32-S3 gateway, stores the results in Supabase and displays them in an Android app. We built it as our end-of-year engineering project (PFA) at ENICarthage, Embedded Systems track, 2025-2026.
 
 The three models estimate the remaining useful life (RUL), detect a coming failure and name the likely cause: a bearing problem or motor overheating. A chatbot in the app turns those outputs into maintenance advice.
 
@@ -16,7 +16,7 @@ STM32F446RE + sensors --UART--> ESP8266 --Wi-Fi / UDP--> ESP32-S3 gateway --HTTP
 ```
 
 1. **Node.** The STM32 reads a temperature sensor and a 3-axis accelerometer, computes a vibration RMS value and sends one text frame per second over UART.
-2. **Wifi Module.** The ESP8266 does no processing. It forwards each frame to the gateway over Wi-Fi using UDP.
+2. **Wi-Fi module.** The ESP8266 does no processing. It forwards each frame to the gateway over Wi-Fi using UDP.
 3. **Gateway.** The ESP32-S3 parses the frames, pushes raw readings to Supabase every second using HTTP protocol, and every 5 minutes runs the models on 300-second averages.
 4. **Cloud and app.** Supabase stores everything. The Android app subscribes to it in real time and shows live curves, predictions and alerts.
 
@@ -27,7 +27,7 @@ Several nodes can share one gateway. The input vector includes the machine type,
 | Part | Role |
 |---|---|
 | STM32 Nucleo-F446RE | Sensor acquisition and FreeRTOS application |
-| Accessory Shield | LM75 temperature sensor , ADXL345 accelerometer , SSD1306 OLED |
+| Accessory Shield | LM75 temperature sensor, ADXL345 accelerometer, SSD1306 OLED |
 | NodeMCU ESP8266 | Wi-Fi module between the node and the gateway |
 | ESP32-S3 | Gateway: Edge AI inference and cloud upload |
 
@@ -65,7 +65,9 @@ Supabase (PostgreSQL) holds three tables:
 
 ## Mobile app
 
-React and TypeScript, packaged for Android with Capacitor 8. It includes:
+The app lives in [`app/`](app/). Nader wrote it in his own repository ([nadergasmi-dev/Application-Mobile-de-Systeme-de-Surveillance-Intelligent-et-Maintenance-Predictive-Embarquee](https://github.com/nadergasmi-dev/Application-Mobile-de-Systeme-de-Surveillance-Intelligent-et-Maintenance-Predictive-Embarquee)), starting from a Figma design, and we moved it here so the firmware, the models and the app sit in one place. His repo keeps the full commit history.
+
+It's React and TypeScript, packaged for Android with Capacitor 8. It includes:
 
 - Login with email and password or Google OAuth, and a password reset by 6-digit code sent by email.
 - A machine setup screen (type, operating mode, hours since maintenance).
@@ -105,35 +107,42 @@ The app's [use case diagram](docs/images/use-case-diagram.png), [class diagram](
 ## Repository structure
 
 ```
-motorwatch/
-├── firmware/
-│   ├── stm32-node/        STM32CubeIDE project (FreeRTOS, drivers)
-│   ├── esp8266-relay/     Arduino sketch
-│   └── esp32s3-gateway/   Arduino sketch + Edge Impulse libraries
-├── app/                   React + Capacitor Android app
-├── supabase/              Database schema
-├── docs/                  Project report and images
+MotorWatch/
+├── app/                        React + Capacitor Android app
+│   ├── src/components/         Screens: login, machine setup, dashboard, events, chatbot
+│   ├── src/config/             Alert thresholds and domain settings
+│   ├── src/utils/supabase/     Supabase project ID and public anon key
+│   ├── supabase/functions/     Edge function (password reset emails through Resend)
+│   └── capacitor.config.json
+├── docs/images/                Screenshots and diagrams
+├── LICENSE
 └── README.md
 ```
+
+Still to come: `firmware/` (the STM32 node, the ESP8266 relay and the ESP32-S3 gateway with its Edge Impulse libraries) and `supabase/schema.sql`. Until then, the table layout in the [Database](#database) section is the reference.
+
+A few notes on `app/`. The Markdown files in `app/src/` (`DEPLOYMENT_GUIDE.md`, `FIX_GOOGLE_SIGNIN.md` and so on) are Nader's working notes from development, mostly in French. `app/GUIDE_API_SUPABASE.txt` explains how the gateway should write to the tables.
 
 ## Getting started
 
 You need an STM32 Nucleo-F446RE with the Accessory Shield, a NodeMCU ESP8266, an ESP32-S3 board, a Supabase project and a Wi-Fi network.
 
 1. **Supabase.** Create a project and apply `supabase/schema.sql`. Turn on Realtime for `sensor_data` and `ai_models`, and add one row to `motor_config`.
-2. **STM32.** Open `firmware/stm32-node` in STM32CubeIDE, build and flash the board.
+2. **STM32.** (Firmware not pushed yet.) Open `firmware/stm32-node` in STM32CubeIDE, build and flash the board.
 3. **ESP8266.** Copy `secrets.example.h` to `secrets.h`, set your Wi-Fi credentials and the gateway address, then upload the sketch from the Arduino IDE.
 4. **ESP32-S3.** In the Arduino IDE, install the three Edge Impulse libraries with Sketch > Include Library > Add .ZIP Library. Select the board `ESP32S3 Dev Module`, fill in `secrets.h` (Wi-Fi, Supabase URL and key) and upload.
 5. **App.** From the `app` folder:
 
    ```bash
    npm install
-   cp .env.example .env     # add your Supabase URL, anon key and Gemini key
+   cp .env.example .env     # add your Gemini key
    npm run dev              # run in the browser
    npm run build
    npx cap sync android
    npx cap open android     # build and run from Android Studio
    ```
+
+The Supabase project ID and anon key are set in `app/src/utils/supabase/info.tsx`; point them at your own project. The anon key is meant to be public, so Row Level Security on the tables is what actually protects the data. The password reset function needs a `RESEND_API_KEY` secret set in Supabase.
 
 Real keys and passwords never go in the repository. Only the `*.example` files are committed.
 
